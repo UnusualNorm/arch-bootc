@@ -1,3 +1,20 @@
+FROM docker.io/archlinux:base-devel AS pkg-builder
+
+RUN pacman-key --init
+RUN pacman -Sy --noconfirm
+RUN useradd -m builder && \
+    echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
+COPY pkgbuilds /pkgbuilds
+RUN chown -R builder:builder /pkgbuilds
+USER builder
+
+WORKDIR /pkgbuilds/bootc
+RUN makepkg -Ccs --noconfirm
+
+WORKDIR /pkgbuilds/bootupd
+RUN makepkg -Ccs --noconfirm
+
 FROM docker.io/archlinux:base-devel AS builder
 
 RUN pacman-key --init
@@ -37,7 +54,7 @@ FROM scratch
 COPY --from=builder /mnt /
 
 # Install bootc and bootupd
-COPY pkgbuilds /pkgbuilds
+COPY --from=pkg-builder /pkgbuilds /pkgbuilds
 RUN pacman -U --noconfirm /pkgbuilds/bootupd/*.pkg.tar.zst /pkgbuilds/bootc/*.pkg.tar.zst && rm -rf /pkgbuilds 
 
 # Add ostree tmpfile
